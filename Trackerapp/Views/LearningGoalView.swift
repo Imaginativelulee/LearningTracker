@@ -24,6 +24,7 @@ struct LearningGoalView: View {
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(.systemBackground))
+        .tint(Color("AppOrange"))
         .navigationTitle(viewModel.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -32,9 +33,8 @@ struct LearningGoalView: View {
                     Button("Update", systemImage: "checkmark") {
                         viewModel.checkmarkTapped()
                     }
-                    .labelStyle(.iconOnly)
                     .buttonStyle(.borderedProminent)
-                    .tint(Color.appOrange)
+                    .tint(Color("AppOrange"))
                 }
             }
         }
@@ -52,7 +52,7 @@ struct LearningGoalView: View {
         VStack(alignment: .leading, spacing: 4) {
             Image(systemName: "flame.fill")
                 .font(.system(size: 36))
-                .foregroundStyle(Color.appOrange)
+                .foregroundStyle(.tint)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 60)
                 .padding(.bottom, 56)
@@ -90,17 +90,12 @@ struct LearningGoalView: View {
 
     private var startFooter: some View {
         VStack(spacing: 10) {
-            Button {
+            Button("Start Learning") {
                 viewModel.startLearning()
-            } label: {
-                Text("Start Learning")
-                    .font(.subheadline)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 28)
-                    .padding(.vertical, 12)
-                    .background(Color.appOrange, in: .capsule)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .controlSize(.large)
 
             Text("You can edit your desire later")
                 .font(.caption2)
@@ -116,36 +111,28 @@ private struct DurationPicker: View {
     @Binding var selection: LearningDuration
 
     var body: some View {
-        HStack(spacing: 12) {
-            ForEach(LearningDuration.allCases, id: \.self) { duration in
-                let isSelected = duration == selection
+        GlassEffectContainer(spacing: 12) {
+            HStack(spacing: 12) {
+                ForEach(LearningDuration.allCases, id: \.self) { duration in
+                    let isSelected = duration == selection
 
-                Button {
-                    selection = duration
-                } label: {
-                    Text(duration.rawValue)
-                        .font(.subheadline)
-                        .foregroundStyle(isSelected ? Color.white : Color.secondary)
-                        .padding(.horizontal, 22)
-                        .padding(.vertical, 11)
-                        .background {
-                            if isSelected {
-                                Capsule()
-                                    .fill(Color.appOrange.gradient)
-                            } else {
-                                Capsule()
-                                    .fill(.ultraThinMaterial)
-                                    .overlay {
-                                        Capsule()
-                                            .strokeBorder(
-                                                .primary.opacity(0.10),
-                                                lineWidth: 1
-                                            )
-                                    }
-                            }
-                        }
+                    Button {
+                        selection = duration
+                    } label: {
+                        Text(duration.rawValue)
+                            .font(.subheadline)
+                            .foregroundStyle(isSelected ? Color.white : Color.secondary)
+                            .padding(.horizontal, 22)
+                            .padding(.vertical, 11)
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(
+                        isSelected
+                            ? .regular.tint(Color("AppOrange")).interactive()
+                            : .regular.interactive(),
+                        in: .capsule
+                    )
                 }
-                .buttonStyle(.plain)
             }
         }
     }
