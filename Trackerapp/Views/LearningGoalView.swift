@@ -57,8 +57,8 @@ struct LearningGoalView: View {
                 .padding(.top, 60)
                 .padding(.bottom, 56)
 
-            Text("Hello ").font(.system(size: 30, weight: .light))
-                + Text("Learner").font(.system(size: 30, weight: .bold))
+            Text("Hello \(Text("Learner").fontWeight(.bold))")
+                .font(.system(size: 30, weight: .light))
 
             Text("This app will help you learn everyday!")
                 .font(.subheadline)
