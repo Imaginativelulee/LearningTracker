@@ -26,7 +26,7 @@ final class ActivityViewModel {
     let freezeLimit: Int
     private let earlierStatuses: [DayStatus?]
 
-    let dateTitle = "Thursday, 24 October"   // mock; Phase 4 uses a real Date
+    let dateTitle = "Friday, 25 October"   // mock; Phase 4 uses a real Date
 
     init(
         screenState: ScreenState = .active,
