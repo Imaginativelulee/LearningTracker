@@ -1,25 +1,19 @@
 import SwiftUI
 
 struct LearningGoalView: View {
+    @Environment(\.dismiss) private var dismiss
     @State private var viewModel: LearningGoalViewModel
 
-    init(mode: LearningGoalViewModel.Mode = .onboarding) {
-        _viewModel = State(initialValue: LearningGoalViewModel(mode: mode))
+    init(viewModel: LearningGoalViewModel) {
+        _viewModel = State(initialValue: viewModel)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if viewModel.showsWelcomeHeader {
-                welcomeHeader
-            }
-
+            if viewModel.showsWelcomeHeader { welcomeHeader }
             goalForm
-
             Spacer()
-
-            if viewModel.showsStartButton {
-                startFooter
-            }
+            if viewModel.showsStartButton { startFooter }
         }
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -27,6 +21,7 @@ struct LearningGoalView: View {
         .tint(Color("AppOrange"))
         .navigationTitle(viewModel.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarVisibility(viewModel.mode == .onboarding ? .hidden : .visible, for: .navigationBar)
         .toolbar {
             if viewModel.mode == .edit {
                 ToolbarItem(placement: .confirmationAction) {
@@ -35,18 +30,20 @@ struct LearningGoalView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Color("AppOrange"))
+                    .disabled(!viewModel.canSubmit)
                 }
             }
         }
         .alert("Update goal", isPresented: $viewModel.isShowingUpdateAlert) {
             Button("Dismiss", role: .cancel) { }
-            Button("Update") { viewModel.updateGoal() }
+            Button("Update") {
+                viewModel.updateGoal()
+                dismiss()
+            }
         } message: {
             Text("If you update now, your streak will start over.")
         }
     }
-
-    // MARK: - Pieces of the screen
 
     private var welcomeHeader: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -68,15 +65,13 @@ struct LearningGoalView: View {
 
     private var goalForm: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("I want to learn")
-                .font(.subheadline)
+            Text("I want to learn").font(.subheadline)
 
             TextField("Swift", text: $viewModel.topic)
                 .font(.subheadline)
                 .padding(.top, 16)
 
-            Divider()
-                .padding(.top, 12)
+            Divider().padding(.top, 12)
 
             Text("I want to learn it in a")
                 .font(.subheadline)
@@ -90,12 +85,11 @@ struct LearningGoalView: View {
 
     private var startFooter: some View {
         VStack(spacing: 10) {
-            Button("Start Learning") {
-                viewModel.startLearning()
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .controlSize(.large)
+            Button("Start Learning") { viewModel.startLearning() }
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .controlSize(.large)
+                .disabled(!viewModel.canSubmit)
 
             Text("You can edit your desire later")
                 .font(.caption2)
@@ -104,8 +98,6 @@ struct LearningGoalView: View {
         .frame(maxWidth: .infinity)
     }
 }
-
-// MARK: - Week / Month / Year pills
 
 private struct DurationPicker: View {
     @Binding var selection: LearningDuration
@@ -135,15 +127,5 @@ private struct DurationPicker: View {
                 }
             }
         }
-    }
-}
-
-#Preview("Onboarding") {
-    LearningGoalView(mode: .onboarding)
-}
-
-#Preview("Edit") {
-    NavigationStack {
-        LearningGoalView(mode: .edit)
     }
 }

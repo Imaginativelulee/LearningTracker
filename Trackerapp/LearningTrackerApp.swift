@@ -1,10 +1,12 @@
 import SwiftUI
+import SwiftData
 
 @main
 struct LearningTrackerApp: App {
     var body: some Scene {
         WindowGroup {
-            LearningGoalView(mode: .onboarding)
+            RootView()
         }
+        .modelContainer(for: [LearningGoal.self, ActivityRecord.self])
     }
 }

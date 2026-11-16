@@ -19,7 +19,7 @@ struct DayCircle: View {
         if isHighlightedToday { return .white }
         switch status {
         case .learned: return Color("AppOrange")
-        case .freezed: return Color("AppBlue")
+        case .freezed: return Color("AppCyan")
         case nil: return .primary
         }
     }
@@ -28,7 +28,7 @@ struct DayCircle: View {
         if isHighlightedToday { return Color("AppOrange") }
         switch status {
         case .learned: return Color("AppOrange").opacity(0.2)
-        case .freezed: return Color("AppBlue").opacity(0.2)
+        case .freezed: return Color("AppCyan").opacity(0.2)
         case nil: return .clear
         }
     }

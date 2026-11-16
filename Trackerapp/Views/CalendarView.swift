@@ -1,16 +1,26 @@
 import SwiftUI
 
 struct CalendarView: View {
-    @State private var viewModel = CalendarViewModel()
+    @State private var viewModel: CalendarViewModel
+
+    init(viewModel: CalendarViewModel) {
+        _viewModel = State(initialValue: viewModel)
+    }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(viewModel.months) { month in
-                    MonthSection(month: month, weekdaySymbols: viewModel.weekdaySymbols)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(viewModel.months) { month in
+                        MonthSection(month: month, weekdaySymbols: viewModel.weekdaySymbols)
+                            .id(month.id)
+                    }
                 }
+                .padding(.horizontal, 16)
             }
-            .padding(.horizontal, 16)
+            .onAppear {
+                if let id = viewModel.currentMonthID { proxy.scrollTo(id, anchor: .top) }
+            }
         }
         .background(Color(.systemBackground))
         .navigationTitle(viewModel.title)
@@ -26,8 +36,7 @@ private struct MonthSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(month.title)
-                .font(.subheadline.weight(.semibold))
+            Text(month.title).font(.subheadline.weight(.semibold))
 
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(weekdaySymbols, id: \.self) { symbol in
@@ -35,25 +44,15 @@ private struct MonthSection: View {
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
-
                 ForEach(0..<month.leadingBlanks, id: \.self) { _ in
                     Color.clear.frame(height: 36)
                 }
-
-                ForEach(1...month.dayCount, id: \.self) { day in
-                    DayCircle(number: day,
-                              status: month.statuses[day],
-                              isToday: day == month.todayNumber)
+                ForEach(month.days) { day in
+                    DayCircle(number: day.number, status: day.status, isToday: day.isToday)
                 }
             }
         }
         .padding(.vertical, 16)
         .overlay(alignment: .bottom) { Divider() }
-    }
-}
-
-#Preview {
-    NavigationStack {
-        CalendarView()
     }
 }

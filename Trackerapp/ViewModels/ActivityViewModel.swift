@@ -1,77 +1,63 @@
 import Foundation
 import Observation
+import SwiftData
 
 @Observable
 final class ActivityViewModel {
 
-    enum ScreenState {
-        case active
-        case goalCompleted
-        case goalNotMet
-    }
+    enum ScreenState { case active, goalCompleted, goalNotMet }
 
-    struct WeekDay: Identifiable {
-        let id: Int
+    struct StripDay: Identifiable {
+        let id: Date
         let letter: String
         let number: Int
         let status: DayStatus?
         let isToday: Bool
     }
 
-    // MARK: - State (mock values for the UI phase)
-    var screenState: ScreenState
-    var todayStatus: DayStatus?
-    var learnedCount: Int
-    var freezedCount: Int
-    let freezeLimit: Int
-    private let earlierStatuses: [DayStatus?]
+    private let goal: LearningGoal
+    private let context: ModelContext
+    private let calendar = Calendar.current
 
-    let dateTitle = "Friday, 25 October"   // mock; Phase 4 uses a real Date
+    /// "The current moment". Changing it makes SwiftUI redraw.
+    private(set) var now: Date
 
-    init(
-        screenState: ScreenState = .active,
-        todayStatus: DayStatus? = nil,
-        learnedCount: Int = 4,
-        freezedCount: Int = 0,
-        freezeLimit: Int = 2,
-        earlierStatuses: [DayStatus?] = [.learned, .learned, .learned, .learned]
-    ) {
-        self.screenState = screenState
-        self.todayStatus = todayStatus
-        self.learnedCount = learnedCount
-        self.freezedCount = freezedCount
-        self.freezeLimit = freezeLimit
-        self.earlierStatuses = earlierStatuses
+    init(goal: LearningGoal, context: ModelContext, now: Date = .now) {
+        self.goal = goal
+        self.context = context
+        self.now = now
+    }
+
+    private var rules: LearningRules {
+        LearningRules(duration: goal.duration,
+                      startDate: goal.startDate,
+                      records: goal.records.map { DayRecord($0) },
+                      calendar: calendar)
     }
 
     // MARK: - Presentation logic
-    var weekDays: [WeekDay] {
-        let letters = ["S", "M", "T", "W", "T", "F", "S"]
-        let todayIndex = earlierStatuses.count
-
-        return letters.indices.map { index -> WeekDay in
-            let status: DayStatus?
-            if index < todayIndex {
-                status = earlierStatuses[index]
-            } else if index == todayIndex {
-                status = todayStatus
-            } else {
-                status = nil
-            }
-            return WeekDay(id: index, letter: letters[index], number: 20 + index,
-                           status: status, isToday: index == todayIndex)
+    var screenState: ScreenState {
+        switch rules.goalState(now: now) {
+        case .active: .active
+        case .completed: .goalCompleted
+        case .notMet: .goalNotMet
         }
     }
 
-    var learnedText: String { daysText(learnedCount) }
-    var freezedText: String { daysText(freezedCount) }
-    var freezeUsageText: String { "\(freezedCount) out of \(freezeLimit) Freezes used" }
+    var dateTitle: String { now.formatted(.dateTime.weekday(.wide).day().month(.wide)) }
+
+    var learnedText: String { daysText(rules.learnedCount) }
+    var freezedText: String { daysText(rules.freezesUsed) }
+    var freezeUsageText: String {
+        "\(rules.freezesUsed) out of \(goal.duration.freezeAllowance) Freezes used"
+    }
+
+    private var todayStatus: DayStatus? { rules.recordedStatus(on: now) }
 
     var logButtonTitle: String { todayStatus == .learned ? "Logged as Learned" : "Log as Learned" }
-    var isLogDisabled: Bool { todayStatus == .learned }
-
     var freezeButtonTitle: String { todayStatus == .freezed ? "Freezed for a day" : "Freeze for a day" }
-    var isFreezeDisabled: Bool { todayStatus == .freezed || freezedCount >= freezeLimit }
+    var isLogDisabled: Bool { rules.blocker(for: .learned, now: now) != nil }
+    var isFreezeDisabled: Bool { rules.blocker(for: .freezed, now: now) != nil }
 
     var endedTitle: String {
         screenState == .goalCompleted ? "Well done!" : "You didn't reach your goal this time."
@@ -80,14 +66,53 @@ final class ActivityViewModel {
         screenState == .goalCompleted ? "Ready for your next goal?" : "Want to set another goal?"
     }
 
-    private func daysText(_ count: Int) -> String {
-        count == 1 ? "1 day" : "\(count) days"
+    /// The calendar week around today, using the real saved records.
+    var weekDays: [StripDay] {
+        guard let week = calendar.dateInterval(of: .weekOfYear, for: now) else { return [] }
+        let records = ((try? context.fetch(FetchDescriptor<ActivityRecord>())) ?? []).map { DayRecord($0) }
+        let statuses = LearningRules.latestStatuses(from: records, calendar: calendar)
+        let letters = calendar.orderedSymbols(calendar.veryShortWeekdaySymbols)
+
+        return (0..<7).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: week.start) else { return nil }
+            return StripDay(id: date,
+                            letter: letters[offset],
+                            number: calendar.component(.day, from: date),
+                            status: statuses[date],
+                            isToday: calendar.isDate(date, inSameDayAs: now))
+        }
     }
 
     // MARK: - Actions
-    func logAsLearned() { todayStatus = .learned }   // mock: Phase 4 adds the real rules
-    func freezeToday() { todayStatus = .freezed }    // mock: Phase 4 adds the real rules
-    func calendarTapped() { }                        // Phase 2: navigate
-    func editGoalTapped() { }                        // Phase 2: navigate
-    func setNewGoalTapped() { }                      // Phase 2: navigate
+    func logAsLearned() { record(.learned) }
+    func freezeToday() { record(.freezed) }
+
+    func refresh() { now = .now }
+
+    /// Wakes up at every midnight so the buttons unlock on the new day.
+    func keepDayCurrent() async {
+        while !Task.isCancelled {
+            now = .now
+            guard let midnight = calendar.nextDate(after: now,
+                                                   matching: DateComponents(hour: 0, minute: 0),
+                                                   matchingPolicy: .nextTime) else { return }
+            try? await Task.sleep(for: .seconds(midnight.timeIntervalSince(now) + 1))
+        }
+    }
+
+    // MARK: - Private
+    private func record(_ status: DayStatus) {
+        let moment = Date.now
+        now = moment
+        guard rules.blocker(for: status, now: moment) == nil else { return }
+
+        context.insert(ActivityRecord(calendarDay: calendar.startOfDay(for: moment),
+                                      recordedAt: moment,
+                                      status: status,
+                                      goal: goal))
+        do { try context.save() } catch { print("Saving the record failed: \(error)") }
+        now = .now   // forces the screen to re-read the new record
+    }
+
+    private func daysText(_ count: Int) -> String { count == 1 ? "1 day" : "\(count) days" }
 }

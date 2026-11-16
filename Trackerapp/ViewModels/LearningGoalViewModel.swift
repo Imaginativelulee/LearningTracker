@@ -1,42 +1,55 @@
 import Foundation
 import Observation
+import SwiftData
 
 @Observable
 final class LearningGoalViewModel {
 
-    enum Mode {
-        case onboarding
-        case edit
-    }
+    enum Mode { case onboarding, edit }
 
-    // MARK: - State (the View reads and writes these)
     let mode: Mode
-    var topic: String
-    var duration: LearningDuration
+    var topic = ""
+    var duration: LearningDuration = .week
     var isShowingUpdateAlert = false
 
-    // MARK: - Presentation logic (decisions the View asks about)
+    private let context: ModelContext
+
+    init(mode: Mode, context: ModelContext) {
+        self.mode = mode
+        self.context = context
+    }
+
+    // MARK: - Presentation logic
     var showsWelcomeHeader: Bool { mode == .onboarding }
     var showsStartButton: Bool { mode == .onboarding }
     var navigationTitle: String { "Learning Goal" }
 
-    // MARK: - Init
-    init(mode: Mode, goal: LearningGoal = LearningGoal(topic: "", duration: .week)) {
-        self.mode = mode
-        self.topic = goal.topic
-        self.duration = goal.duration
-    }
+    var trimmedTopic: String { topic.trimmingCharacters(in: .whitespacesAndNewlines) }
+    var canSubmit: Bool { !trimmedTopic.isEmpty }
 
-    // MARK: - Actions (the View calls these)
-    func startLearning() {
-        // Phase 2 will navigate to Activity. Phase 3 will save the goal.
-    }
+    // MARK: - Actions
+    func startLearning() { saveNewGoal() }
 
     func checkmarkTapped() {
+        guard canSubmit else { return }
         isShowingUpdateAlert = true
     }
 
-    func updateGoal() {
-        // Phase 4 will reset the streak and save the new goal.
+    func updateGoal() { saveNewGoal() }
+
+    /// Ends the current goal (history is kept) and starts a new one today.
+    private func saveNewGoal() {
+        guard canSubmit else { return }
+        let now = Date.now
+
+        let activeGoals = (try? context.fetch(
+            FetchDescriptor<LearningGoal>(predicate: #Predicate { $0.endedAt == nil })
+        )) ?? []
+        for goal in activeGoals { goal.endedAt = now }
+
+        context.insert(LearningGoal(topic: trimmedTopic,
+                                    duration: duration,
+                                    startDate: Calendar.current.startOfDay(for: now)))
+        do { try context.save() } catch { print("Saving the goal failed: \(error)") }
     }
 }

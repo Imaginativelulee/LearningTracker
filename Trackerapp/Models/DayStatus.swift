@@ -1,6 +1,6 @@
 import Foundation
 
-enum DayStatus {
+enum DayStatus: String, Codable {
     case learned
     case freezed
 }
