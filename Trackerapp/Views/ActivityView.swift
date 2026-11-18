@@ -17,16 +17,15 @@ struct ActivityView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            weekStrip
-            statCards
+            header.padding(.horizontal, 14)
+            weekStrip.padding(.horizontal, 6)
+            statCards.padding(.horizontal, 14)
 
             switch viewModel.screenState {
             case .active: activeContent
             case .goalCompleted, .goalNotMet: endedContent
             }
         }
-        .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemBackground))
         .toolbarVisibility(.hidden, for: .navigationBar)
@@ -40,7 +39,7 @@ struct ActivityView: View {
 
     private var header: some View {
         HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Activity").font(.largeTitle.bold())
                 Text(viewModel.dateTitle)
                     .font(.footnote)
@@ -49,14 +48,14 @@ struct ActivityView: View {
 
             Spacer()
 
-            GlassEffectContainer(spacing: 12) {
-                HStack(spacing: 12) {
+            GlassEffectContainer(spacing: 8) {
+                HStack(spacing: 14) {
                     CircleIconButton(title: "Calendar", systemImage: "calendar", action: onOpenCalendar)
                     CircleIconButton(title: "Edit goal", systemImage: "pencil.circle", action: onEditGoal)
                 }
             }
         }
-        .padding(.top, 8)
+        .padding(.top, 5)
     }
 
     private var weekStrip: some View {
@@ -64,7 +63,8 @@ struct ActivityView: View {
             ForEach(viewModel.weekDays) { day in
                 VStack(spacing: 8) {
                     Text(day.letter).font(.caption2.weight(.semibold))
-                    DayCircle(number: day.number, status: day.status, isToday: day.isToday)
+                    DayCircle(number: day.number, status: day.status, isToday: day.isToday,
+                              size: 39, font: .body)
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -73,85 +73,97 @@ struct ActivityView: View {
     }
 
     private var statCards: some View {
-        GlassEffectContainer(spacing: 12) {
-            HStack(spacing: 12) {
+        GlassEffectContainer(spacing: 14) {
+            HStack(spacing: 14) {
                 StatCard(systemImage: "flame.fill", color: Color("AppOrange"),
                          value: viewModel.learnedText, label: "Learned")
                 StatCard(systemImage: "snowflake", color: Color("AppCyan"),
                          value: viewModel.freezedText, label: "Freezed")
             }
         }
-        .padding(.top, 20)
+        .padding(.top, 16)
     }
 
     private var activeContent: some View {
         VStack(spacing: 0) {
             Spacer()
 
-            Button {
-                viewModel.logAsLearned()
-            } label: {
-                Text(viewModel.logButtonTitle)
-                    .font(.subheadline.weight(.semibold))
-                    .frame(width: 250, height: 250)
-            }
-            .buttonStyle(.borderedProminent)       // solid fill, not glass
-            .buttonBorderShape(.circle)
-            .tint(Color("AppOrange"))
-            .disabled(viewModel.isLogDisabled)
+            SolidActionButton(title: viewModel.logButtonTitle,
+                              tint: Color("AppOrange"),
+                              isDisabled: viewModel.isLogDisabled,
+                              shape: AnyShape(.circle),
+                              size: CGSize(width: 272, height: 272),
+                              action: viewModel.logAsLearned)
 
             Spacer()
 
-            VStack(spacing: 10) {
-                Button {
-                    viewModel.freezeToday()
-                } label: {
-                    Text(viewModel.freezeButtonTitle)
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)   // solid fill, not glass
-                .buttonBorderShape(.capsule)
-                .controlSize(.large)
-                .tint(Color("AppCyan"))
-                .disabled(viewModel.isFreezeDisabled)
-                .frame(width: 270)
+            VStack(spacing: 12) {
+                SolidActionButton(title: viewModel.freezeButtonTitle,
+                                  tint: Color("AppCyan"),
+                                  isDisabled: viewModel.isFreezeDisabled,
+                                  shape: AnyShape(.capsule),
+                                  size: CGSize(width: 272, height: 46),
+                                  action: viewModel.freezeToday)
 
                 Text(viewModel.freezeUsageText)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .padding(.bottom, 24)
+            .padding(.bottom, 46)
         }
     }
 
     private var endedContent: some View {
-        VStack(spacing: 8) {
-            Spacer()
-
+        VStack(spacing: 0) {
             Image(systemName: viewModel.screenState == .goalCompleted ? "hands.clap.fill" : "xmark.seal")
                 .font(.system(size: 40))
                 .foregroundStyle(Color("AppOrange"))
-                .padding(.bottom, 8)
+                .padding(.top, 70)
 
-            Text(viewModel.endedTitle).font(.subheadline.weight(.semibold))
+            Text(viewModel.endedTitle)
+                .font(.subheadline.weight(.semibold))
+                .padding(.top, 27)
+
             Text(viewModel.endedSubtitle)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .padding(.top, 9)
 
             Button("Set a goal", systemImage: "pencil.circle", action: onEditGoal)
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.capsule)
+                .controlSize(.large)
                 .tint(Color("AppOrange"))
-                .padding(.top, 16)
+                .padding(.top, 75)
 
-            Spacer()
-            Spacer()
+            Spacer(minLength: 0)
         }
     }
 }
 
 // MARK: - Small pieces used only by this screen
+
+/// A solid-filled button (not glass). Dimmed gray when it can't be tapped.
+private struct SolidActionButton: View {
+    let title: String
+    let tint: Color
+    let isDisabled: Bool
+    let shape: AnyShape
+    let size: CGSize
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(isDisabled ? Color.secondary : Color.white)
+                .frame(width: size.width, height: size.height)
+                .background(isDisabled ? Color(.systemGray6) : tint, in: shape)
+        }
+        .buttonStyle(.plain)
+        .allowsHitTesting(!isDisabled)
+    }
+}
 
 private struct CircleIconButton: View {
     let title: String
@@ -159,10 +171,15 @@ private struct CircleIconButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(title, systemImage: systemImage, action: action)
-            .labelStyle(.iconOnly)
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 17))
+                .foregroundStyle(.primary)
+                .frame(width: 40, height: 40)
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .circle)
+        .accessibilityLabel(title)
     }
 }
 
@@ -173,13 +190,18 @@ private struct StatCard: View {
     let label: String
 
     var body: some View {
-        VStack(spacing: 4) {
-            Image(systemName: systemImage).foregroundStyle(color)
-            Text(value).font(.subheadline.weight(.semibold))
-            Text(label).font(.caption2).foregroundStyle(.secondary)
+        VStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .foregroundStyle(color)
+
+            VStack(spacing: 3) {
+                Text(value).font(.footnote.weight(.semibold))
+                Text(label).font(.caption2).foregroundStyle(.secondary)
+            }
         }
         .frame(maxWidth: .infinity)
         .frame(height: 100)
-        .glassEffect(.regular, in: .rect(cornerRadius: 28))
+        .glassEffect(.regular, in: .rect(cornerRadius: 24))
     }
 }

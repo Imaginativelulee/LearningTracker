@@ -46,13 +46,19 @@ final class ActivityViewModel {
 
     var dateTitle: String { now.formatted(.dateTime.weekday(.wide).day().month(.wide)) }
 
-    var learnedText: String { daysText(rules.learnedCount) }
-    var freezedText: String { daysText(rules.freezesUsed) }
-    var freezeUsageText: String {
-        "\(rules.freezesUsed) out of \(goal.duration.freezeAllowance) Freezes used"
-    }
-
+    /// Today's temporary selection (nil if the user hasn't chosen yet).
     private var todayStatus: DayStatus? { rules.recordedStatus(on: now) }
+
+    // Displayed numbers = finalized days + today's selection (matches the design).
+    // The rules (allowance, streak, completion) use finalized days only.
+    private var shownLearned: Int { rules.learnedCount(now: now) + (todayStatus == .learned ? 1 : 0) }
+    private var shownFreezed: Int { rules.freezesUsed(now: now) + (todayStatus == .freezed ? 1 : 0) }
+
+    var learnedText: String { daysText(shownLearned) }
+    var freezedText: String { daysText(shownFreezed) }
+    var freezeUsageText: String {
+        "\(shownFreezed) out of \(goal.duration.freezeAllowance) Freezes used"
+    }
 
     var logButtonTitle: String { todayStatus == .learned ? "Logged as Learned" : "Log as Learned" }
     var freezeButtonTitle: String { todayStatus == .freezed ? "Freezed for a day" : "Freeze for a day" }
@@ -84,12 +90,12 @@ final class ActivityViewModel {
     }
 
     // MARK: - Actions
-    func logAsLearned() { record(.learned) }
-    func freezeToday() { record(.freezed) }
+    func logAsLearned() { select(.learned) }
+    func freezeToday() { select(.freezed) }
 
     func refresh() { now = .now }
 
-    /// Wakes up at every midnight so the buttons unlock on the new day.
+    /// Wakes up at every midnight so yesterday's selection locks and the new day starts clean.
     func keepDayCurrent() async {
         while !Task.isCancelled {
             now = .now
@@ -101,17 +107,24 @@ final class ActivityViewModel {
     }
 
     // MARK: - Private
-    private func record(_ status: DayStatus) {
+
+    /// Sets today's selection. Changes the existing record instead of adding a second one.
+    private func select(_ status: DayStatus) {
         let moment = Date.now
         now = moment
         guard rules.blocker(for: status, now: moment) == nil else { return }
 
-        context.insert(ActivityRecord(calendarDay: calendar.startOfDay(for: moment),
-                                      recordedAt: moment,
-                                      status: status,
-                                      goal: goal))
-        do { try context.save() } catch { print("Saving the record failed: \(error)") }
-        now = .now   // forces the screen to re-read the new record
+        if let draft = goal.records.first(where: { calendar.isDate($0.calendarDay, inSameDayAs: moment) }) {
+            draft.status = status
+            draft.recordedAt = moment
+        } else {
+            context.insert(ActivityRecord(calendarDay: calendar.startOfDay(for: moment),
+                                          recordedAt: moment,
+                                          status: status,
+                                          goal: goal))
+        }
+        do { try context.save() } catch { print("Saving the selection failed: \(error)") }
+        now = .now   // forces the screen to re-read the record
     }
 
     private func daysText(_ count: Int) -> String { count == 1 ? "1 day" : "\(count) days" }

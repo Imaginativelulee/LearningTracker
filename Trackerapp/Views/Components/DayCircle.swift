@@ -4,12 +4,14 @@ struct DayCircle: View {
     let number: Int
     let status: DayStatus?
     let isToday: Bool
+    var size: CGFloat = 36
+    var font: Font = .subheadline
 
     var body: some View {
         Text("\(number)")
-            .font(.subheadline)
+            .font(font)
             .foregroundStyle(textColor)
-            .frame(width: 36, height: 36)
+            .frame(width: size, height: size)
             .background(backgroundColor, in: .circle)
     }
 

@@ -10,7 +10,7 @@ struct DayRecord: Equatable {
 struct LearningRules {
     static let streakWindow: TimeInterval = 32 * 60 * 60
 
-    enum Blocker { case notStarted, goalFinished, alreadyRecorded, allowanceExhausted }
+    enum Blocker { case notStarted, goalFinished, alreadySelected, allowanceExhausted }
     enum GoalState { case active, completed, notMet }
 
     let duration: LearningDuration
@@ -26,7 +26,6 @@ struct LearningRules {
         calendar.dateComponents([.day], from: firstDay, to: endDay).day ?? 0
     }
 
-    /// Whole calendar days between the start day and `date`.
     func dayOffset(of date: Date) -> Int {
         calendar.dateComponents([.day], from: firstDay, to: calendar.startOfDay(for: date)).day ?? 0
     }
@@ -36,24 +35,41 @@ struct LearningRules {
         return offset >= 0 && offset < totalDays
     }
 
-    // MARK: - Counters
+    // MARK: - Draft vs. finalized
 
-    var learnedCount: Int { records.filter { $0.status == .learned }.count }
-    var freezesUsed: Int { records.filter { $0.status == .freezed }.count }
+    /// Today's record is a draft the user can still change.
+    /// Every record from an earlier day is final.
+    func finalizedRecords(now: Date) -> [DayRecord] {
+        let today = calendar.startOfDay(for: now)
+        return records.filter { calendar.startOfDay(for: $0.day) < today }
+    }
 
+    /// Today's selection (the draft), if any.
     func recordedStatus(on date: Date) -> DayStatus? {
         records.first { calendar.isDate($0.day, inSameDayAs: date) }?.status
     }
 
-    // MARK: - Can the user record now?
+    // MARK: - Counters (finalized only)
 
-    /// nil means "allowed". Otherwise it says why not.
+    func learnedCount(now: Date) -> Int {
+        finalizedRecords(now: now).filter { $0.status == .learned }.count
+    }
+
+    func freezesUsed(now: Date) -> Int {
+        finalizedRecords(now: now).filter { $0.status == .freezed }.count
+    }
+
+    // MARK: - Can the user select this status now?
+
+    /// nil means "allowed". Switching between Learned and Freeze is allowed all day.
     func blocker(for status: DayStatus, now: Date) -> Blocker? {
         let offset = dayOffset(of: now)
         if offset < 0 { return .notStarted }
         if offset >= totalDays { return .goalFinished }
-        if recordedStatus(on: now) != nil { return .alreadyRecorded }
-        if status == .freezed && freezesUsed >= duration.freezeAllowance { return .allowanceExhausted }
+        if recordedStatus(on: now) == status { return .alreadySelected }
+        if status == .freezed && freezesUsed(now: now) >= duration.freezeAllowance {
+            return .allowanceExhausted
+        }
         return nil
     }
 
@@ -61,16 +77,18 @@ struct LearningRules {
 
     func goalState(now: Date) -> GoalState {
         guard dayOffset(of: now) >= totalDays else { return .active }
-        let recordedDays = Set(records.filter { isInGoal($0.day) }
-                                      .map { calendar.startOfDay(for: $0.day) })
-        let isComplete = recordedDays.count == totalDays && freezesUsed <= duration.freezeAllowance
+        let finalized = finalizedRecords(now: now)
+        let recordedDays = Set(finalized.filter { isInGoal($0.day) }
+                                        .map { calendar.startOfDay(for: $0.day) })
+        let freezes = finalized.filter { $0.status == .freezed }.count
+        let isComplete = recordedDays.count == totalDays && freezes <= duration.freezeAllowance
         return isComplete ? .completed : .notMet
     }
 
-    // MARK: - Streak (exact 32 hours, based on timestamps, not calendar days)
+    // MARK: - Streak (exact 32 hours, finalized records only)
 
     func streak(now: Date) -> Int {
-        let ordered = records.sorted { $0.recordedAt < $1.recordedAt }
+        let ordered = finalizedRecords(now: now).sorted { $0.recordedAt < $1.recordedAt }
         guard let last = ordered.last,
               now.timeIntervalSince(last.recordedAt) <= Self.streakWindow else { return 0 }
 

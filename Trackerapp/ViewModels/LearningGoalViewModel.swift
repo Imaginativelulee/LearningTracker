@@ -37,19 +37,26 @@ final class LearningGoalViewModel {
 
     func updateGoal() { saveNewGoal() }
 
-    /// Ends the current goal (history is kept) and starts a new one today.
+    /// Ends the current goal (history is kept), discards its draft for today,
+    /// and starts a new goal today.
     private func saveNewGoal() {
         guard canSubmit else { return }
         let now = Date.now
+        let today = Calendar.current.startOfDay(for: now)
 
         let activeGoals = (try? context.fetch(
             FetchDescriptor<LearningGoal>(predicate: #Predicate { $0.endedAt == nil })
         )) ?? []
-        for goal in activeGoals { goal.endedAt = now }
+
+        for goal in activeGoals {
+            let drafts = goal.records.filter { $0.calendarDay >= today }   // today's unfinished selection
+            for draft in drafts { context.delete(draft) }
+            goal.endedAt = now
+        }
 
         context.insert(LearningGoal(topic: trimmedTopic,
                                     duration: duration,
-                                    startDate: Calendar.current.startOfDay(for: now)))
+                                    startDate: today))
         do { try context.save() } catch { print("Saving the goal failed: \(error)") }
     }
 }
