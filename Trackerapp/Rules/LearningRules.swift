@@ -26,6 +26,7 @@ struct LearningRules {
         calendar.dateComponents([.day], from: firstDay, to: endDay).day ?? 0
     }
 
+    /// Whole calendar days between the first day and `date`.
     func dayOffset(of date: Date) -> Int {
         calendar.dateComponents([.day], from: firstDay, to: calendar.startOfDay(for: date)).day ?? 0
     }
@@ -44,7 +45,7 @@ struct LearningRules {
         return records.filter { calendar.startOfDay(for: $0.day) < today }
     }
 
-    /// Today's selection (the draft), if any.
+    /// The status recorded on `date`, if any (for today, this is the draft).
     func recordedStatus(on date: Date) -> DayStatus? {
         records.first { calendar.isDate($0.day, inSameDayAs: date) }?.status
     }
@@ -77,11 +78,13 @@ struct LearningRules {
 
     func goalState(now: Date) -> GoalState {
         guard dayOffset(of: now) >= totalDays else { return .active }
-        let finalized = finalizedRecords(now: now)
-        let recordedDays = Set(finalized.filter { isInGoal($0.day) }
-                                        .map { calendar.startOfDay(for: $0.day) })
-        let freezes = finalized.filter { $0.status == .freezed }.count
-        let isComplete = recordedDays.count == totalDays && freezes <= duration.freezeAllowance
+
+        let recordedDays = Set(finalizedRecords(now: now)
+            .filter { isInGoal($0.day) }
+            .map { calendar.startOfDay(for: $0.day) })
+
+        let isComplete = recordedDays.count == totalDays
+            && freezesUsed(now: now) <= duration.freezeAllowance
         return isComplete ? .completed : .notMet
     }
 

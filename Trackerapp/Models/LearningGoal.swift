@@ -6,6 +6,7 @@ enum LearningDuration: String, CaseIterable, Codable {
     case month = "Month"
     case year = "Year"
 
+    /// Total Freeze days for the whole goal. It never refills.
     var freezeAllowance: Int {
         switch self {
         case .week: 2
@@ -16,12 +17,12 @@ enum LearningDuration: String, CaseIterable, Codable {
 
     /// The first day AFTER the goal ends, counted from the exact start date.
     func endDay(from start: Date, calendar: Calendar) -> Date {
-        let (component, value): (Calendar.Component, Int) = switch self {
-        case .week: (.day, 7)
-        case .month: (.month, 1)
-        case .year: (.year, 1)
+        let end: Date? = switch self {
+        case .week: calendar.date(byAdding: .day, value: 7, to: start)
+        case .month: calendar.date(byAdding: .month, value: 1, to: start)
+        case .year: calendar.date(byAdding: .year, value: 1, to: start)
         }
-        return calendar.date(byAdding: component, value: value, to: start) ?? start
+        return end ?? start
     }
 }
 

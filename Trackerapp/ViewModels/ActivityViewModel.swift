@@ -5,8 +5,6 @@ import SwiftData
 @Observable
 final class ActivityViewModel {
 
-    enum ScreenState { case active, goalCompleted, goalNotMet }
-
     struct StripDay: Identifiable {
         let id: Date
         let letter: String
@@ -19,7 +17,7 @@ final class ActivityViewModel {
     private let context: ModelContext
     private let calendar = Calendar.current
 
-    /// "The current moment". Changing it makes SwiftUI redraw.
+    /// "The current moment". Changing it makes SwiftUI redraw the screen.
     private(set) var now: Date
 
     init(goal: LearningGoal, context: ModelContext, now: Date = .now) {
@@ -36,21 +34,16 @@ final class ActivityViewModel {
     }
 
     // MARK: - Presentation logic
-    var screenState: ScreenState {
-        switch rules.goalState(now: now) {
-        case .active: .active
-        case .completed: .goalCompleted
-        case .notMet: .goalNotMet
-        }
-    }
+
+    var goalState: LearningRules.GoalState { rules.goalState(now: now) }
 
     var dateTitle: String { now.formatted(.dateTime.weekday(.wide).day().month(.wide)) }
 
     /// Today's temporary selection (nil if the user hasn't chosen yet).
     private var todayStatus: DayStatus? { rules.recordedStatus(on: now) }
 
-    // Displayed numbers = finalized days + today's selection (matches the design).
-    // The rules (allowance, streak, completion) use finalized days only.
+    // Shown numbers = finalized days + today's selection (matches the design).
+    // The rules themselves (allowance, streak, completion) use finalized days only.
     private var shownLearned: Int { rules.learnedCount(now: now) + (todayStatus == .learned ? 1 : 0) }
     private var shownFreezed: Int { rules.freezesUsed(now: now) + (todayStatus == .freezed ? 1 : 0) }
 
@@ -66,20 +59,19 @@ final class ActivityViewModel {
     var isFreezeDisabled: Bool { rules.blocker(for: .freezed, now: now) != nil }
 
     var endedTitle: String {
-        screenState == .goalCompleted ? "Well done!" : "You didn't reach your goal this time."
+        goalState == .completed ? "Well done!" : "You didn't reach your goal this time."
     }
     var endedSubtitle: String {
-        screenState == .goalCompleted ? "Ready for your next goal?" : "Want to set another goal?"
+        goalState == .completed ? "Ready for your next goal?" : "Want to set another goal?"
     }
 
     /// The calendar week around today, using the real saved records.
     var weekDays: [StripDay] {
         guard let week = calendar.dateInterval(of: .weekOfYear, for: now) else { return [] }
-        let records = ((try? context.fetch(FetchDescriptor<ActivityRecord>())) ?? []).map { DayRecord($0) }
-        let statuses = LearningRules.latestStatuses(from: records, calendar: calendar)
+        let statuses = LearningRules.latestStatuses(from: context.allDayRecords(), calendar: calendar)
         let letters = calendar.orderedSymbols(calendar.veryShortWeekdaySymbols)
 
-        return (0..<7).compactMap { offset in
+        return (0..<7).compactMap { offset -> StripDay? in
             guard let date = calendar.date(byAdding: .day, value: offset, to: week.start) else { return nil }
             return StripDay(id: date,
                             letter: letters[offset],
@@ -90,9 +82,11 @@ final class ActivityViewModel {
     }
 
     // MARK: - Actions
+
     func logAsLearned() { select(.learned) }
     func freezeToday() { select(.freezed) }
 
+    /// Called when the app returns to the foreground.
     func refresh() { now = .now }
 
     /// Wakes up at every midnight so yesterday's selection locks and the new day starts clean.
@@ -111,7 +105,8 @@ final class ActivityViewModel {
     /// Sets today's selection. Changes the existing record instead of adding a second one.
     private func select(_ status: DayStatus) {
         let moment = Date.now
-        now = moment
+        defer { now = .now }   // refresh the screen when we leave, whether we saved or were blocked
+
         guard rules.blocker(for: status, now: moment) == nil else { return }
 
         if let draft = goal.records.first(where: { calendar.isDate($0.calendarDay, inSameDayAs: moment) }) {
@@ -124,7 +119,6 @@ final class ActivityViewModel {
                                           goal: goal))
         }
         do { try context.save() } catch { print("Saving the selection failed: \(error)") }
-        now = .now   // forces the screen to re-read the record
     }
 
     private func daysText(_ count: Int) -> String { count == 1 ? "1 day" : "\(count) days" }

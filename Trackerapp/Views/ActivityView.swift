@@ -21,9 +21,9 @@ struct ActivityView: View {
             weekStrip.padding(.horizontal, 6)
             statCards.padding(.horizontal, 14)
 
-            switch viewModel.screenState {
+            switch viewModel.goalState {
             case .active: activeContent
-            case .goalCompleted, .goalNotMet: endedContent
+            case .completed, .notMet: endedContent
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -75,9 +75,9 @@ struct ActivityView: View {
     private var statCards: some View {
         GlassEffectContainer(spacing: 14) {
             HStack(spacing: 14) {
-                StatCard(systemImage: "flame.fill", color: Color("AppOrange"),
+                StatCard(systemImage: "flame.fill", color: .brandOrange,
                          value: viewModel.learnedText, label: "Learned")
-                StatCard(systemImage: "snowflake", color: Color("AppCyan"),
+                StatCard(systemImage: "snowflake", color: .brandCyan,
                          value: viewModel.freezedText, label: "Freezed")
             }
         }
@@ -89,7 +89,7 @@ struct ActivityView: View {
             Spacer()
 
             SolidActionButton(title: viewModel.logButtonTitle,
-                              tint: Color("AppOrange"),
+                              tint: .brandOrange,
                               isDisabled: viewModel.isLogDisabled,
                               shape: AnyShape(.circle),
                               size: CGSize(width: 272, height: 272),
@@ -99,7 +99,7 @@ struct ActivityView: View {
 
             VStack(spacing: 12) {
                 SolidActionButton(title: viewModel.freezeButtonTitle,
-                                  tint: Color("AppCyan"),
+                                  tint: .brandCyan,
                                   isDisabled: viewModel.isFreezeDisabled,
                                   shape: AnyShape(.capsule),
                                   size: CGSize(width: 272, height: 46),
@@ -115,9 +115,9 @@ struct ActivityView: View {
 
     private var endedContent: some View {
         VStack(spacing: 0) {
-            Image(systemName: viewModel.screenState == .goalCompleted ? "hands.clap.fill" : "xmark.seal")
+            Image(systemName: viewModel.goalState == .completed ? "hands.clap.fill" : "xmark.seal")
                 .font(.system(size: 40))
-                .foregroundStyle(Color("AppOrange"))
+                .foregroundStyle(Color.brandOrange)
                 .padding(.top, 70)
 
             Text(viewModel.endedTitle)
@@ -133,7 +133,7 @@ struct ActivityView: View {
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.capsule)
                 .controlSize(.large)
-                .tint(Color("AppOrange"))
+                .tint(.brandOrange)
                 .padding(.top, 75)
 
             Spacer(minLength: 0)

@@ -15,23 +15,25 @@ struct DayCircle: View {
             .background(backgroundColor, in: .circle)
     }
 
+    /// Today with no selection yet is shown as a solid orange circle.
     private var isHighlightedToday: Bool { isToday && status == nil }
 
-    private var textColor: Color {
-        if isHighlightedToday { return .white }
+    /// The status color, or nil when the day has no status.
+    private var tint: Color? {
         switch status {
-        case .learned: return Color("AppOrange")
-        case .freezed: return Color("AppCyan")
-        case nil: return .primary
+        case .learned: Color.brandOrange
+        case .freezed: Color.brandCyan
+        case nil: nil
         }
     }
 
+    private var textColor: Color {
+        if isHighlightedToday { return .white }
+        return tint ?? .primary
+    }
+
     private var backgroundColor: Color {
-        if isHighlightedToday { return Color("AppOrange") }
-        switch status {
-        case .learned: return Color("AppOrange").opacity(0.2)
-        case .freezed: return Color("AppCyan").opacity(0.2)
-        case nil: return .clear
-        }
+        if isHighlightedToday { return .brandOrange }
+        return tint?.opacity(0.2) ?? .clear
     }
 }

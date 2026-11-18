@@ -10,26 +10,26 @@ struct LearningGoalView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if viewModel.showsWelcomeHeader { welcomeHeader }
+            if viewModel.isOnboarding { welcomeHeader }
             goalForm
             Spacer()
-            if viewModel.showsStartButton { startFooter }
+            if viewModel.isOnboarding { startFooter }
         }
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(.systemBackground))
-        .tint(Color("AppOrange"))
-        .navigationTitle(viewModel.navigationTitle)
+        .tint(.brandOrange)
+        .navigationTitle("Learning Goal")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarVisibility(viewModel.mode == .onboarding ? .hidden : .visible, for: .navigationBar)
+        .toolbarVisibility(viewModel.isOnboarding ? .hidden : .visible, for: .navigationBar)
         .toolbar {
-            if viewModel.mode == .edit {
+            if !viewModel.isOnboarding {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Update", systemImage: "checkmark") {
                         viewModel.checkmarkTapped()
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(Color("AppOrange"))
+                    .tint(.brandOrange)
                     .disabled(!viewModel.canSubmit)
                 }
             }
@@ -37,13 +37,15 @@ struct LearningGoalView: View {
         .alert("Update goal", isPresented: $viewModel.isShowingUpdateAlert) {
             Button("Dismiss", role: .cancel) { }
             Button("Update") {
-                viewModel.updateGoal()
+                viewModel.saveGoal()
                 dismiss()
             }
         } message: {
             Text("If you update now, your streak will start over.")
         }
     }
+
+    // MARK: - Pieces of the screen
 
     private var welcomeHeader: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -85,7 +87,7 @@ struct LearningGoalView: View {
 
     private var startFooter: some View {
         VStack(spacing: 10) {
-            Button("Start Learning") { viewModel.startLearning() }
+            Button("Start Learning") { viewModel.saveGoal() }
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.capsule)
                 .controlSize(.large)
@@ -98,6 +100,8 @@ struct LearningGoalView: View {
         .frame(maxWidth: .infinity)
     }
 }
+
+// MARK: - Week / Month / Year pills
 
 private struct DurationPicker: View {
     @Binding var selection: LearningDuration
@@ -120,7 +124,7 @@ private struct DurationPicker: View {
                     .buttonStyle(.plain)
                     .glassEffect(
                         isSelected
-                            ? .regular.tint(Color("AppOrange")).interactive()
+                            ? .regular.tint(.brandOrange).interactive()
                             : .regular.interactive(),
                         in: .capsule
                     )
